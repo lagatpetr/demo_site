@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>What is this item? | Tech Kidz Africa</title>
+<style>
+:root{--bg:#e9ecef;--paper:#fff;--ink:#1b2430;--muted:#566370;--line:#c9d0d6;--bar:#232d38;
+--ai:#1d5fa8;--ai-dark:#17508f;--ai-soft:#e4eef8;--ai-line:#a9c6e4;
+--human:#b45309;--human-dark:#92400e;--human-soft:#fbecdb;--human-line:#e6bf94;
+--ok:#1e7a46;--ok-dark:#186339;--ok-soft:#e1f1e8;--ok-line:#9fcfb3;
+--bad:#b3261e;--bad-dark:#8f1d17;--bad-soft:#fae7e5;--bad-line:#e5aaa5;
+--mono:ui-monospace,"DejaVu Sans Mono",Consolas,Menlo,monospace}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.45 "Segoe UI","Noto Sans",Ubuntu,"Helvetica Neue",Arial,sans-serif}
+
+/* top bar */
+.bar{background:var(--bar);color:#d9e0e6;font-size:15px}
+.bar-in{width:min(1400px,96vw);margin:auto;padding:12px 0;display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+.brand{font-size:30px;line-height:1.1;letter-spacing:.01em;text-align:center}
+.bar b{color:#fff;font-weight:600}.bar .sep{opacity:.45}.grow{flex:1}
+.modelstate{display:flex;align-items:center;gap:8px;color:#e8edf1;justify-self:end}
+.dot{width:10px;height:10px;border-radius:50%;background:#c98a1b;display:inline-block;flex:none}
+.dot.ok{background:#3fb06e}.dot.bad{background:#e0584f}
+
+.wrap{width:min(1400px,96vw);margin:0 auto;padding:20px 0 30px}
+h1{margin:0 0 14px;font-size:clamp(30px,3.6vw,42px);line-height:1.12;font-weight:700;letter-spacing:-.01em}
+.lede{margin:6px 0 14px;color:var(--muted);font-size:19px}
+
+/* message bar */
+.msgbar{display:flex;gap:12px;align-items:center;background:var(--paper);border:1px solid var(--line);border-left:6px solid #8a949e;border-radius:6px;padding:10px 14px;margin-bottom:16px;min-height:56px}
+.msgbar.ai{border-left-color:var(--ai)}.msgbar.human{border-left-color:var(--human)}
+.msgbar.good{border-left-color:var(--ok)}.msgbar.bad{border-left-color:var(--bad);background:var(--bad-soft)}
+#msg{flex:1;font-size:19px}
+.msgactions{display:flex;gap:8px;flex:none}
+
+/* layout */
+.grid{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,1fr);gap:18px;align-items:start}
+.col{display:flex;flex-direction:column;gap:18px;min-width:0}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.cardhead{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);background:#f6f8f9}
+.cardhead h2{margin:0;font-size:18px;font-weight:700}
+.chip{font-size:13px;font-weight:700;padding:2px 9px;border-radius:3px;border:1px solid;white-space:nowrap}
+.chip.ai{color:var(--ai);background:var(--ai-soft);border-color:var(--ai-line)}
+.chip.human{color:var(--human);background:var(--human-soft);border-color:var(--human-line)}
+.camstate{font-size:15px;color:var(--muted);display:flex;align-items:center;gap:7px}
+.camstate .dot{width:9px;height:9px}
+
+/* camera */
+.screen{position:relative;aspect-ratio:16/10;min-height:260px;background:#1c2229;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.screen video,.screen img{display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.screen canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.empty{text-align:center;max-width:420px;padding:24px;color:#c3ccd4;z-index:1;font-size:18px}
+.empty strong{display:block;color:#fff;font-size:22px;margin-bottom:6px}
+.actions{display:flex;flex-wrap:wrap;gap:10px;padding:14px 16px;border-top:1px solid var(--line)}
+.help{padding:0 16px 14px;font-size:15px;color:var(--muted)}
+kbd{font-family:var(--mono);font-size:13px;background:#f1f3f5;border:1px solid #b9c2ca;border-bottom-width:2px;border-radius:3px;padding:0 6px;color:var(--ink)}
+button,.upload{font:inherit;font-size:18px;font-weight:600;min-height:48px;padding:8px 18px;border-radius:6px;border:1px solid #9aa5af;background:var(--paper);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;position:relative}
+button:hover:not(:disabled),.upload:hover{background:#eef1f3}
+button:active:not(:disabled){transform:translateY(1px)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.upload input{position:absolute;opacity:0;width:1px;height:1px;overflow:hidden}
+.small{min-height:38px;padding:4px 12px;font-size:15px}
+.primary{background:var(--ai);border-color:var(--ai);color:#fff}.primary:hover:not(:disabled){background:var(--ai-dark)}
+.primary kbd{color:var(--ink)}
+.ghost{border-color:var(--line);color:var(--muted);font-weight:500}
+button:focus-visible,.upload:focus-within,input:focus-visible{outline:3px solid #f2b705;outline-offset:2px}
+
+/* result card */
+.resbody{display:grid;grid-template-columns:250px minmax(0,1fr);gap:18px;padding:16px}
+.snapbox{position:relative;aspect-ratio:1;background:#1c2229;border-radius:4px;overflow:hidden;border:1px solid #11161b}
+.snapbox canvas{position:absolute;inset:0;width:100%;height:100%;display:none}
+.snapbox .nopic{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#c3ccd4;font-size:16px;padding:12px}
+.caption{margin-top:6px;font-size:13px;color:var(--muted);line-height:1.35}
+.guesscol{min-width:0}
+.placeholder{color:var(--muted);padding:6px 0}
+.g-kicker{font-size:14px;font-weight:700;color:var(--ai);margin-bottom:2px}
+.headline{font-size:clamp(30px,3.3vw,44px);line-height:1.1;font-weight:700;color:var(--ai);overflow-wrap:anywhere}
+.headline.unsure{color:var(--ink)}
+.g-sub{font-size:15px;color:var(--muted);margin-top:4px}
+.g-title{font-size:14px;font-weight:700;color:var(--muted);margin:14px 0 4px}
+.g-row{margin-bottom:9px}
+.g-line{display:flex;justify-content:space-between;gap:10px;font-size:19px;font-weight:600}
+.g-line span:first-child{overflow-wrap:anywhere}
+.g-pct{font-family:var(--mono);color:var(--ai)}
+.meter{height:10px;background:#dde2e6;border-radius:5px;overflow:hidden;margin-top:3px}
+.meter div{height:100%;background:var(--ai);min-width:2px}
+.took{margin-top:10px;font-size:13px;color:var(--muted)}
+
+.verdict{border-top:1px solid var(--line);padding:14px 16px 16px}
+.vhead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.vhead h3{margin:0;font-size:20px}
+.vbtns{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.vbtn{min-height:76px;font-size:22px;line-height:1.2;text-align:center}
+.vbtn kbd{font-size:13px}
+.yes{background:var(--ok);border-color:var(--ok);color:#fff}.yes:hover:not(:disabled){background:var(--ok-dark)}
+.no{background:var(--bad);border-color:var(--bad);color:#fff}.no:hover:not(:disabled){background:var(--bad-dark)}
+.verdictnote{margin-top:12px;padding:9px 12px;border-radius:4px;border:1px solid;font-size:18px;font-weight:600}
+.verdictnote.ok{color:var(--ok);background:var(--ok-soft);border-color:var(--ok-line)}
+.verdictnote.human{color:var(--human);background:var(--human-soft);border-color:var(--human-line)}
+.fix{margin-top:12px;border:1px solid var(--human-line);border-left:6px solid var(--human);background:var(--human-soft);border-radius:4px;padding:12px 14px}
+.fix h4{margin:0 0 8px;font-size:18px;color:var(--human-dark)}
+.picks{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center}
+.picks .lbl{font-size:15px;color:var(--muted)}
+.humanbtn{background:var(--human);border-color:var(--human);color:#fff}.humanbtn:hover:not(:disabled){background:var(--human-dark)}
+.humanout{border-color:var(--human);color:var(--human);background:var(--paper)}.humanout:hover:not(:disabled){background:var(--human-soft)}
+.fixrow{display:flex;gap:8px;flex-wrap:wrap}
+input[type=text]{font:inherit;font-size:21px;flex:1;min-width:200px;padding:8px 12px;border:2px solid var(--human);border-radius:6px;background:#fff;color:var(--ink)}
+.vfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;font-size:14px;color:var(--muted)}
+
+/* totals */
+.stats{display:grid;grid-template-columns:repeat(4,1fr)}
+.stat{padding:10px 14px 12px;border-right:1px solid var(--line);border-top:5px solid #8a949e}
+.stat:last-child{border-right:0}
+.stat b{display:block;font-family:var(--mono);font-size:36px;line-height:1.1;font-weight:700}
+.stat span{font-size:14px;color:var(--muted);line-height:1.25;display:block}
+.stat.total{border-top-color:var(--ink)}.stat.right{border-top-color:var(--ok)}.stat.right b{color:var(--ok)}
+.stat.fixed{border-top-color:var(--human)}.stat.fixed b{color:var(--human)}
+.stat.acc{border-top-color:var(--ai)}.stat.acc b{color:var(--ai)}
+.headright{display:flex;align-items:center;gap:12px}.muted{font-size:14px;color:var(--muted)}
+
+/* log */
+.logwrap{margin-top:18px}
+.tablebox{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:19px}
+th{text-align:left;font-size:14px;color:var(--muted);font-weight:700;padding:9px 14px;border-bottom:2px solid var(--ink);white-space:nowrap}
+td{padding:9px 14px;border-bottom:1px dashed #b4bdc5;vertical-align:middle}
+tr:last-child td{border-bottom:0}
+td.n{font-family:var(--mono);color:var(--muted);width:48px}
+td.pic{width:78px}
+td.pic img{display:block;width:56px;height:56px;border:1px solid var(--line);border-radius:3px;object-fit:cover}
+td.item{font-weight:700;overflow-wrap:anywhere}
+td.item.fixedname{color:var(--human)}
+td.guess{color:var(--ai);font-weight:600;overflow-wrap:anywhere}
+td.guess.wrong{color:var(--bad);text-decoration:line-through;text-decoration-thickness:2px}
+td.conf{font-family:var(--mono)}
+td.conf small{display:block;font-family:inherit;font-size:13px;color:var(--muted)}
+.tag{font-size:15px;font-weight:700;padding:3px 10px;border-radius:3px;border:1px solid;white-space:nowrap}
+.tag.ok{color:var(--ok);background:var(--ok-soft);border-color:var(--ok-line)}
+.tag.human{color:var(--human);background:var(--human-soft);border-color:var(--human-line)}
+.emptylog{padding:22px 16px;color:var(--muted)}
+.legend{margin-top:16px;font-size:15px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:2px;margin:0 6px 0 16px;vertical-align:-1px}.legend i:first-child{margin-left:0}
+.legend a{color:var(--muted)}
+
+@media(max-width:1000px){.grid{grid-template-columns:1fr}.resbody{grid-template-columns:1fr}.snapbox{max-width:260px}.stats{grid-template-columns:repeat(2,1fr)}.msgbar{flex-wrap:wrap}}
+@media(prefers-reduced-motion:reduce){button:active:not(:disabled){transform:none}}
+</style>
+</head>
+<body>
+<header class="bar"><div class="bar-in">
+ <span></span>
+ <b class="brand">Tech Kidz Africa</b>
+ <span class="modelstate"><span id="modelDot" class="dot"></span><span id="modelText">Preparing the AI…</span></span>
+</div></header>
+
+<div class="wrap">
+ <h1>What is this item?</h1>
+
+ <div class="msgbar" id="msgbar" hidden>
+  <div id="msg" role="status" aria-live="polite">Loading the AI. Please wait.</div>
+  <div class="msgactions">
+   <button id="retryBtn" class="humanout" hidden>Retry loading the AI</button>
+   <button id="saveModelBtn" class="ghost small" hidden>Save model files for offline use</button>
+  </div>
+ </div>
+
+ <noscript><p class="lede">This demo needs JavaScript. Please turn it on in your browser.</p></noscript>
+
+ <main class="grid">
+  <div class="col">
+   <section class="card" aria-label="Camera">
+    <div class="cardhead"><h2>1. Show an item to the camera</h2><span class="camstate"><span id="camDot" class="dot"></span><span id="camText">Camera off</span></span></div>
+    <div class="screen" id="screen">
+     <div id="empty" class="empty"><strong>Camera is off</strong>Press Start camera and hold one item in front of the lens. No camera? Use a photo.</div>
+     <video id="video" autoplay muted playsinline></video><img id="photoImg" alt="Chosen photo" /><canvas id="guide"></canvas>
+    </div>
+    <div class="actions">
+     <button id="camBtn">Start camera</button>
+     <button id="idBtn" class="primary" disabled>Identify <kbd>Space</kbd></button>
+     <label class="upload">Use a photo<input id="photo" type="file" accept="image/*" /></label>
+    </div>
+   </section>
+   <section class="card" aria-label="Totals">
+    <div class="cardhead"><h2>Score so far</h2><span class="headright"><span id="tDiscard" class="muted"></span><button id="resetBtn" class="small">Reset <kbd>R</kbd></button></span></div>
+    <div class="stats">
+     <div class="stat total"><b id="tTotal">0</b><span>Items checked</span></div>
+     <div class="stat right"><b id="tRight">0</b><span>AI was right</span></div>
+     <div class="stat fixed"><b id="tFixed">0</b><span>A person had to fix</span></div>
+     <div class="stat acc"><b id="tAcc">–</b><span>AI accuracy (first guess)</span></div>
+    </div>
+   </section>
+  </div>
+
+  <div class="col">
+   <section class="card" aria-label="AI result">
+    <div class="cardhead"><h2>2. What the AI saw and guessed</h2><span class="chip ai">AI</span></div>
+    <div class="resbody">
+     <div>
+      <div class="snapbox"><canvas id="snap" width="224" height="224"></canvas><div class="nopic" id="nopic">The picture the AI looked at will appear here.</div></div>
+      <div class="caption" id="snapCap">Nothing captured yet.</div>
+     </div>
+     <div class="guesscol" id="guesses"></div>
+    </div>
+    <div class="verdict">
+     <div class="vhead"><h3>3. Is the AI right?</h3><span class="chip human">Person decides</span></div>
+     <div class="vbtns">
+      <button id="yesBtn" class="vbtn yes" disabled>Yes, the AI is right<kbd>Y</kbd></button>
+      <button id="noBtn" class="vbtn no" disabled>No, the AI is wrong<kbd>N</kbd></button>
+     </div>
+     <div class="fix" id="fixPanel" hidden>
+      <h4>What is it really?</h4>
+      <div class="picks" id="picks"></div>
+      <div class="fixrow">
+       <input type="text" id="fixInput" maxlength="60" placeholder="Type the real item name" autocomplete="off" aria-label="What the item really is" />
+       <button id="fixSave" class="humanbtn">Save correction</button>
+       <button id="fixCancel" class="humanout">Cancel</button>
+      </div>
+     </div>
+     <div class="verdictnote" id="verdictNote" hidden></div>
+     <div class="vfoot"><span>The person has the final say, not the AI.</span><button id="discardBtn" class="ghost small" disabled>Discard this picture (not logged)</button></div>
+    </div>
+   </section>
+
+  </div>
+ </main>
+
+ <section class="card logwrap" aria-label="Log">
+  <div class="cardhead"><h2>Log</h2><span class="camstate">Newest first</span></div>
+  <div class="tablebox" id="logBox"></div>
+ </section>
+
+ <p class="legend"><i style="background:var(--ai)"></i>Something the AI did<i style="background:var(--human)"></i>Something a person did<i style="background:var(--ok)"></i>Confirmed correct<i style="background:var(--bad)"></i>Wrong</p>
+</div>
+
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+
+/* ---------- settings you may change ---------- */
+const CONFIDENCE_LINE=0.40;   // below this, the page says "The AI is not sure"
+const CROP_SQUARE=true;       // true: the AI sees the centre square of the frame. false: the whole frame squashed into a square.
+const INPUT_SIZE=224;         // MobileNet v2 takes 224 x 224 pixels
+const LOCAL_MODEL='model/model.json';
+const MODEL_CFG={version:2,alpha:1.0,inputRange:[0,1]};   // MobileNet v2, width 1.0. Pixels go in as 0..1, which is what this model expects.
+
+/* ---------- where the AI comes from: local files first, internet only as a backup ---------- */
+const SOURCES={
+ tf:['lib/tf.min.js','https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js','https://unpkg.com/@tensorflow/tfjs@4.22.0/dist/tf.min.js'],
+ mobilenet:['lib/mobilenet.min.js','https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js','https://unpkg.com/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js']
+};
+function loadScript(src){return new Promise((res,rej)=>{
+ const s=document.createElement('script');let done=false;
+ const timer=setTimeout(()=>{if(done)return;done=true;s.remove();rej(new Error('timed out '+src))},12000);
+ s.src=src;s.onload=()=>{if(done)return;done=true;clearTimeout(timer);res()};
+ s.onerror=()=>{if(done)return;done=true;clearTimeout(timer);s.remove();rej(new Error('failed '+src))};
+ document.head.appendChild(s)})}
+async function loadFirst(list,check){
+ for(const src of list){try{await loadScript(src);if(check())return src}catch(e){}}
+ throw new Error('The AI code could not be loaded (no local copy in lib/ and no internet)');
+}
+function withTimeout(p,ms,text){let t;return Promise.race([p,new Promise((_,rej)=>{t=setTimeout(()=>rej(new Error(text)),ms)})]).finally(()=>clearTimeout(t))}
+
+/* ---------- state ---------- */
+let model=null,modelOrigin='',loading=false,busy=false;
+let source='none',stream=null,photoURL=null;
+let stage='none';            // none | await (waiting for a person) | fixing (person is typing a correction) | done
+let current=null;            // the capture waiting for a verdict: {preds,unsure,thumb,ms}
+let log=[],counter=0,discarded=0,resetTimer=null;
+const video=$('video'),photoImg=$('photoImg'),guide=$('guide'),gctx=guide.getContext('2d');
+
+/* ---------- small helpers ---------- */
+function el(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n}
+function message(s,type=''){
+ $('msg').textContent=s;$('msgbar').className='msgbar '+type;
+ // everyday hints stay out of sight; the bar only appears for problems, or when Retry / Save needs a button
+ $('msgbar').hidden=!(type==='bad'||!$('retryBtn').hidden||!$('saveModelBtn').hidden);
+}
+const pct=p=>p<0.005?'<1%':Math.round(p*100)+'%';
+function nice(full){const first=full.split(',')[0].trim();return first.charAt(0).toUpperCase()+first.slice(1)}
+function aliases(full){return full.split(',').slice(1).map(s=>s.trim()).filter(Boolean)}
+function setModelState(text,kind){$('modelText').textContent=text;$('modelDot').className='dot'+(kind?' '+kind:'')}
+function setCamState(text,ok){$('camText').textContent=text;$('camDot').className='dot'+(ok?' ok':'')}
+
+function updateButtons(){
+ const haveSource=source==='cam'||source==='image';
+ const waiting=stage==='await'||stage==='fixing';
+ $('idBtn').disabled=!(model&&haveSource&&!busy&&!waiting);
+ $('yesBtn').disabled=!waiting||busy;
+ $('noBtn').disabled=!waiting||busy;
+ $('discardBtn').disabled=!waiting||busy;
+}
+
+/* ---------- loading the AI ---------- */
+async function checkModel(m){
+ const probe=document.createElement('canvas');probe.width=probe.height=INPUT_SIZE;
+ let shape;
+ try{const t=m.infer(probe);shape=t.shape.slice();t.dispose()}
+ catch(e){throw new Error('These model files do not look like MobileNet v2 for ImageNet ('+e.message+')')}
+ if(shape.length!==2||shape[1]!==1000)throw new Error('These model files do not look like MobileNet v2 for ImageNet (expected 1000 classes, got '+shape.join('x')+')');
+}
+async function warmUp(){
+ const c=document.createElement('canvas');c.width=c.height=INPUT_SIZE;
+ const g=c.getContext('2d');g.fillStyle='#808080';g.fillRect(0,0,INPUT_SIZE,INPUT_SIZE);
+ await model.classify(c,3);                       // first run compiles the graphics code
+ const t=performance.now();await model.classify(c,3);
+ return Math.round(performance.now()-t);
+}
+async function loadModel(){
+ if(loading)return;
+ loading=true;model=null;modelOrigin='';
+ $('retryBtn').hidden=true;$('saveModelBtn').hidden=true;
+ setModelState('Loading the AI…');message('Loading the AI. Please wait a few seconds.','ai');updateButtons();
+ try{
+  if(!window.tf)await loadFirst(SOURCES.tf,()=>!!window.tf&&!!tf.loadGraphModel);
+  if(!window.mobilenet)await loadFirst(SOURCES.mobilenet,()=>!!window.mobilenet&&typeof mobilenet.load==='function');
+  await tf.ready();
+  let m=null,localProblem='';
+  try{
+   m=await withTimeout(mobilenet.load(Object.assign({modelUrl:LOCAL_MODEL},MODEL_CFG)),60000,'loading the local model took too long');
+   await checkModel(m);modelOrigin='offline model';
+  }catch(e){if(m&&m.model&&m.model.dispose)try{m.model.dispose()}catch(x){}m=null;localProblem=String(e&&e.message||e)}
+  if(!m){
+   setModelState('Local model not usable. Trying the internet…');
+   message('The model files in the model folder could not be used. Trying the internet as a backup…','ai');
+   try{
+    m=await withTimeout(mobilenet.load(MODEL_CFG),90000,'the online download took too long');
+    await checkModel(m);modelOrigin='online model';
+   }catch(e2){
+    if(m&&m.model&&m.model.dispose)try{m.model.dispose()}catch(x){}
+    throw new Error('Local model: '+localProblem+'. Online backup: '+String(e2&&e2.message||e2));
+   }
+  }
+  model=m;
+  const ms=await warmUp();
+  const backend=(tf.getBackend()||'?').toUpperCase();
+  setModelState(`AI ready · ${modelOrigin} · ${backend}`,'ok');
+  if(modelOrigin==='online model'){
+   $('saveModelBtn').hidden=false;
+   message('The AI is ready, but it came from the internet because the model folder is empty or not usable. Press “Save model files for offline use”, then follow READ_ME_FIRST.txt.','ai');
+  }else if(backend==='CPU'){
+   message(`The AI is ready but running on the CPU (about ${ms} ms per guess). Use Chrome or Edge with hardware acceleration for a smoother show.`,'bad');
+  }else{
+   message('The AI is ready. Start the camera or choose a photo, hold up any item, then press Identify.','good');
+  }
+ }catch(e){
+  model=null;
+  setModelState('AI not loaded','bad');
+  $('retryBtn').hidden=false;
+  message('The AI could not be loaded. '+String(e&&e.message||e).replace(/[.\s]+$/,'')+'. Nothing is faked: no guesses will be shown until it loads.','bad');
+ }finally{loading=false;updateButtons()}
+}
+async function saveModelFiles(){
+ try{
+  if(!model||!model.model||typeof model.model.save!=='function')throw new Error('this AI model cannot be saved from here');
+  await model.model.save('downloads://model');
+  message('Two files were downloaded: model.json and model.weights.bin. Put BOTH in the model folder of this kit, then restart the demo. Allow multiple downloads if the browser asks.','good');
+ }catch(e){message('Could not save the model files: '+(e&&e.message||e)+'. See READ_ME_FIRST.txt for the manual download.','bad')}
+}
+
+/* ---------- camera ---------- */
+async function getStream(){
+ const tries=[{audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}},{audio:false,video:true}];
+ let last;
+ for(const c of tries){
+  try{return await navigator.mediaDevices.getUserMedia(c)}
+  catch(e){last=e;if(e.name==='NotAllowedError'||e.name==='SecurityError'||e.name==='NotFoundError'||e.name==='NotReadableError')throw e}
+ }
+ throw last;
+}
+function cameraError(e){
+ switch(e&&e.name){
+  case 'NotAllowedError':case 'PermissionDeniedError':return 'Camera permission was denied. Click the camera icon in the address bar, choose Allow, then press Start camera again.';
+  case 'NotFoundError':case 'DevicesNotFoundError':return 'No camera was found on this computer. Plug one in, or use a photo.';
+  case 'NotReadableError':case 'TrackStartError':case 'AbortError':return 'The camera is in use by another app (Zoom, Teams or another browser tab). Close it, then press Start camera again.';
+  case 'SecurityError':return 'The browser blocked the camera on this page. Start the demo with START_DEMO.bat or START_DEMO.sh, or use a photo.';
+  default:return (e&&e.message)||'Unknown camera problem.';
+ }
+}
+function stopCam(){
+ if(stream){stream.getTracks().forEach(t=>{t.onended=null;t.stop()});stream=null}
+ video.srcObject=null;
+}
+async function startCam(){
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+  message('This browser cannot use the camera on this page. Start the demo with START_DEMO.bat or START_DEMO.sh (Chrome or Edge), or use a photo.','bad');setCamState('No camera access');return;
+ }
+ try{
+  stopCam();
+  stream=await getStream();
+  stream.getTracks().forEach(t=>{t.onended=()=>{
+   stopCam();if(source==='cam'){source='none';video.style.display='none';$('empty').style.display='';clearGuide();updateButtons()}
+   setCamState('Camera stopped');message('The camera stopped. It may have been unplugged or taken by another app. Press Start camera to try again, or use a photo.','bad');
+  }});
+  video.srcObject=stream;await video.play();
+  source='cam';photoImg.style.display='none';video.style.display='block';$('empty').style.display='none';
+  $('camBtn').textContent='Restart camera';setCamState('Camera live',true);
+  drawGuide();updateButtons();
+  message(model?'Camera is live. Hold one item inside the square, then press Identify.':'Camera is live. The AI is still loading.',model?'good':'ai');
+ }catch(e){
+  stopCam();
+  if(source==='cam')source='none';
+  setCamState('Camera problem');updateButtons();
+  message(cameraError(e)+' You can also press “Use a photo”.','bad');
+ }
+}
+
+/* ---------- guide square on the live view (shows what part of the frame the AI will look at) ---------- */
+function mediaSize(){
+ if(source==='cam')return [video.videoWidth,video.videoHeight];
+ if(source==='image')return [photoImg.naturalWidth,photoImg.naturalHeight];
+ return [0,0];
+}
+function clearGuide(){gctx.clearRect(0,0,guide.width,guide.height)}
+function drawGuide(){
+ const r=$('screen').getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+ guide.width=Math.round(r.width*dpr);guide.height=Math.round(r.height*dpr);
+ gctx.setTransform(dpr,0,0,dpr,0,0);gctx.clearRect(0,0,r.width,r.height);
+ const [nw,nh]=mediaSize();if(!nw||!nh||!CROP_SQUARE)return;
+ const k=Math.min(r.width/nw,r.height/nh),dw=nw*k,dh=nh*k,ox=(r.width-dw)/2,oy=(r.height-dh)/2,side=Math.min(nw,nh)*k;
+ const x=ox+(dw-side)/2,y=oy+(dh-side)/2;
+ gctx.fillStyle='rgba(20,26,32,.45)';
+ gctx.fillRect(ox,oy,dw,y-oy);gctx.fillRect(ox,y+side,dw,oy+dh-(y+side));
+ gctx.fillRect(ox,y,x-ox,side);gctx.fillRect(x+side,y,ox+dw-(x+side),side);
+ gctx.strokeStyle='#5aa2ec';gctx.lineWidth=3;gctx.setLineDash([10,7]);gctx.strokeRect(x+1.5,y+1.5,side-3,side-3);gctx.setLineDash([]);
+ gctx.font='600 14px "Segoe UI","Noto Sans",Arial,sans-serif';
+ const t='The AI looks only inside this square',tw=gctx.measureText(t).width+16;
+ gctx.fillStyle='#1d5fa8';gctx.fillRect(x+8,y+8,tw,24);gctx.fillStyle='#fff';gctx.fillText(t,x+16,y+25);
+}
+window.addEventListener('resize',drawGuide);
+if(window.ResizeObserver)new ResizeObserver(drawGuide).observe($('screen'));
+video.addEventListener('loadedmetadata',drawGuide);
+
+/* ---------- capture one frame, then classify THAT frame ---------- */
+function grabFrame(){
+ const [w,h]=mediaSize();if(!w||!h)return null;
+ const el=source==='cam'?video:photoImg;
+ const c=document.createElement('canvas');c.width=c.height=INPUT_SIZE;
+ const g=c.getContext('2d');g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';
+ if(CROP_SQUARE){const s=Math.min(w,h);g.drawImage(el,(w-s)/2,(h-s)/2,s,s,0,0,INPUT_SIZE,INPUT_SIZE)}
+ else g.drawImage(el,0,0,w,h,0,0,INPUT_SIZE,INPUT_SIZE);
+ return c;
+}
+function makeThumb(c){const t=document.createElement('canvas');t.width=t.height=56;t.getContext('2d').drawImage(c,0,0,56,56);try{return t.toDataURL('image/jpeg',0.7)}catch(e){return ''}}
+function showSnap(c){
+ const s=$('snap');s.getContext('2d').drawImage(c,0,0,INPUT_SIZE,INPUT_SIZE);s.style.display='block';$('nopic').style.display='none';
+ $('snapCap').textContent=CROP_SQUARE?'Exactly what the AI saw: the centre square of the frame, 224 × 224 pixels.':'Exactly what the AI saw: the whole frame squashed to 224 × 224 pixels.';
+}
+function clearSnap(){$('snap').style.display='none';$('nopic').style.display='flex';$('snapCap').textContent='Nothing captured yet.'}
+
+async function identify(){
+ if(!model){message(loading?'The AI is still loading. Please wait.':'The AI is not loaded, so nothing can be identified. Press “Retry loading the AI”.','bad');return}
+ if(busy)return;
+ if(stage==='await'||stage==='fixing'){message('A person must answer Yes or No for the current picture first (or discard it).','bad');return}
+ if(source==='none'||(source==='cam'&&(video.readyState<2||!video.videoWidth))){message('Start the camera or choose a photo first.','bad');return}
+ const frame=grabFrame();
+ if(!frame){message('The picture is not ready yet. Wait a moment and try again.','bad');return}
+ busy=true;current=null;stage='none';updateButtons();
+ $('verdictNote').hidden=true;$('fixPanel').hidden=true;
+ showSnap(frame);renderGuesses();
+ try{
+  const t0=performance.now();
+  const raw=await model.classify(frame,3);
+  const ms=Math.round(performance.now()-t0);
+  if(!Array.isArray(raw)||raw.length<3||raw.some(r=>!r||typeof r.className!=='string'||!isFinite(r.probability)))throw new Error('the model returned something unexpected');
+  const preds=raw.map(r=>({label:nice(r.className),full:r.className,p:r.probability}));
+  current={preds,unsure:preds[0].p<CONFIDENCE_LINE,thumb:makeThumb(frame),ms};
+  stage='await';
+  message(current.unsure?'The AI is not sure about this one. A person decides: is its best guess right?':'The AI has made a guess. A person decides: is it right?','ai');
+ }catch(err){
+  current=null;stage='none';
+  message('The AI hit an error: '+(err&&err.message||err)+'. Nothing was recorded.','bad');
+ }finally{busy=false;renderGuesses();updateButtons()}
+}
+
+/* ---------- showing the guesses ---------- */
+function guessRow(r){
+ const row=el('div','g-row'),line=el('div','g-line');
+ line.appendChild(el('span','',r.label));line.appendChild(el('span','g-pct',pct(r.p)));
+ const m=el('div','meter'),f=document.createElement('div');f.style.width=(Math.max(0,Math.min(1,r.p))*100)+'%';m.appendChild(f);
+ row.appendChild(line);row.appendChild(m);return row;
+}
+function renderGuesses(){
+ const box=$('guesses');box.textContent='';
+ if(busy&&!current){box.appendChild(el('div','placeholder','The AI is looking at the picture…'));return}
+ if(!current){box.appendChild(el('div','placeholder','No guess yet. Hold up an item and press Identify (Space).'));return}
+ const a=current.preds[0];
+ if(current.unsure){
+  box.appendChild(el('div','g-kicker','AI result'));
+  box.appendChild(el('div','headline unsure','The AI is not sure'));
+  box.appendChild(el('div','g-sub',`Its best guess is “${a.label}”, at only ${pct(a.p)}. That is below ${Math.round(CONFIDENCE_LINE*100)}%, so it is not a confident answer.`));
+  box.appendChild(el('div','g-title','All three guesses'));
+  current.preds.forEach(r=>box.appendChild(guessRow(r)));
+ }else{
+  box.appendChild(el('div','g-kicker','The AI thinks this is'));
+  box.appendChild(el('div','headline',`${a.label}: ${pct(a.p)}`));
+  const al=aliases(a.full);if(al.length)box.appendChild(el('div','g-sub','Also called: '+al.join(', ')));
+  box.appendChild(el('div','g-title','Next guesses'));
+  current.preds.slice(1).forEach(r=>box.appendChild(guessRow(r)));
+ }
+ box.appendChild(el('div','took',`The AI took ${current.ms} ms.`));
+}
+
+/* ---------- the person's verdict ---------- */
+function commit(verdict,actual){
+ const top=current.preds[0];
+ log.unshift({n:++counter,thumb:current.thumb,actual,guess:top.label,p:top.p,unsure:current.unsure,verdict});
+ const note=$('verdictNote');
+ if(verdict==='ai'){note.className='verdictnote ok';note.textContent='Logged: AI correct.'}
+ else{note.className='verdictnote human';note.textContent=`Logged: human corrected. The AI said “${top.label}”, a person said “${actual}”.`}
+ note.hidden=false;$('fixPanel').hidden=true;
+ message(verdict==='ai'?`Logged: the AI was right (${top.label}, ${pct(top.p)}).`:`Logged: the AI guessed “${top.label}” (${pct(top.p)}) but a person corrected it to “${actual}”.`,verdict==='ai'?'good':'human');
+ current=Object.assign({},current,{judged:true});stage='done';
+ renderLog();renderTotals();updateButtons();
+}
+function sayYes(){
+ if(stage!=='await'&&stage!=='fixing'){message('Nothing to judge yet. Press Identify first.','bad');return}
+ commit('ai',current.preds[0].label);
+}
+function openFix(){
+ if(stage!=='await'&&stage!=='fixing'){message('Nothing to judge yet. Press Identify first.','bad');return}
+ stage='fixing';
+ const picks=$('picks');picks.textContent='';
+ picks.appendChild(el('span','lbl','AI’s other guesses (click to use):'));
+ current.preds.slice(1).forEach(r=>{const b=el('button','humanout small',r.label);b.type='button';b.addEventListener('click',()=>{$('fixInput').value=r.label;$('fixInput').focus()});picks.appendChild(b)});
+ $('fixInput').value='';$('fixPanel').hidden=false;$('fixInput').focus();
+ message('The AI was wrong. Type what the item really is, or click one of the AI’s other guesses, then press Enter.','human');
+ updateButtons();
+}
+function cancelFix(){
+ if(stage!=='fixing')return;
+ stage='await';$('fixPanel').hidden=true;message('Correction cancelled. Is the AI right?','ai');updateButtons();
+}
+function saveFix(){
+ if(stage!=='fixing')return;
+ const val=$('fixInput').value.trim().replace(/\s+/g,' ');
+ if(!val){message('Type what the item really is first, or press Cancel.','bad');$('fixInput').focus();return}
+ const top=current.preds[0],low=val.toLowerCase();
+ if(low===top.label.toLowerCase()||top.full.toLowerCase().split(',').map(s=>s.trim()).includes(low)){
+  message(`“${val}” is the same as the AI’s guess. If the AI is right, press Yes instead.`,'bad');$('fixInput').focus();return;
+ }
+ commit('human',val);
+}
+function discard(){
+ if(stage!=='await'&&stage!=='fixing')return;
+ discarded++;current=null;stage='none';$('fixPanel').hidden=true;$('verdictNote').hidden=true;
+ clearSnap();renderGuesses();renderTotals();updateButtons();
+ message('Discarded. Nothing was logged. Show the item again and press Identify.','');
+}
+
+/* ---------- log and totals ---------- */
+function renderLog(){
+ const box=$('logBox');box.textContent='';
+ if(!log.length){box.appendChild(el('div','emptylog','Nothing logged yet. Press Identify, then answer Yes or No.'));return}
+ const t=document.createElement('table'),hr=document.createElement('tr');
+ ['No.','Picture','Item (what it really is)','AI guess','AI confidence','Verdict'].forEach(h=>hr.appendChild(el('th','',h)));
+ const th=document.createElement('thead');th.appendChild(hr);t.appendChild(th);
+ const tb=document.createElement('tbody');
+ log.forEach(r=>{
+  const tr=document.createElement('tr');
+  tr.appendChild(el('td','n',String(r.n)));
+  const pic=el('td','pic');if(r.thumb){const im=document.createElement('img');im.src=r.thumb;im.alt='Picture the AI saw';pic.appendChild(im)}tr.appendChild(pic);
+  tr.appendChild(el('td','item'+(r.verdict==='human'?' fixedname':''),r.actual));
+  tr.appendChild(el('td','guess'+(r.verdict==='human'?' wrong':''),r.guess));
+  const conf=el('td','conf',pct(r.p));if(r.unsure)conf.appendChild(el('small','','not sure'));tr.appendChild(conf);
+  const vt=el('td');vt.appendChild(el('span','tag '+(r.verdict==='ai'?'ok':'human'),r.verdict==='ai'?'AI correct':'Human corrected'));tr.appendChild(vt);
+  tb.appendChild(tr);
+ });
+ t.appendChild(tb);box.appendChild(t);
+}
+function renderTotals(){
+ const total=log.length,right=log.filter(r=>r.verdict==='ai').length,fixed=total-right;
+ $('tTotal').textContent=total;$('tRight').textContent=right;$('tFixed').textContent=fixed;
+ $('tAcc').textContent=total?Math.round(right/total*100)+'%':'–';
+ $('tDiscard').textContent=discarded?`Discarded, not logged: ${discarded}`:'';
+}
+
+/* ---------- reset (asks twice, so a stray key press cannot wipe the log) ---------- */
+function disarmReset(){clearTimeout(resetTimer);resetTimer=null;$('resetBtn').innerHTML='Reset <kbd>R</kbd>'}
+function requestReset(){
+ if((log.length||current||discarded)&&!resetTimer){
+  $('resetBtn').textContent='Click again to clear';
+  message('Press Reset (R) again within 4 seconds to clear the log and the totals.','');
+  resetTimer=setTimeout(()=>{disarmReset();message('Reset cancelled. Nothing was cleared.','')},4000);return;
+ }
+ disarmReset();
+ log=[];counter=0;discarded=0;current=null;stage='none';
+ $('fixPanel').hidden=true;$('verdictNote').hidden=true;clearSnap();
+ renderGuesses();renderLog();renderTotals();updateButtons();
+ message('Log cleared. Ready for the next item.','good');
+}
+
+/* ---------- photo fallback ---------- */
+$('photo').addEventListener('change',e=>{
+ const file=e.target.files&&e.target.files[0];if(!file)return;
+ stopCam();setCamState('Photo');$('camBtn').textContent='Start camera';
+ if(photoURL)URL.revokeObjectURL(photoURL);
+ photoURL=URL.createObjectURL(file);
+ photoImg.onload=()=>{source='image';photoImg.style.display='block';video.style.display='none';$('empty').style.display='none';drawGuide();updateButtons();
+  message(model?'Photo loaded. Press Identify.':'Photo loaded. The AI is still loading.',model?'good':'ai')};
+ photoImg.onerror=()=>{source='none';photoImg.style.display='none';clearGuide();updateButtons();message('That file could not be opened as a picture. Try a JPG or PNG.','bad')};
+ photoImg.src=photoURL;
+ e.target.value='';
+});
+
+/* ---------- fullscreen ---------- */
+function toggleFullscreen(){
+ if(document.fullscreenElement)document.exitFullscreen();
+ else if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(()=>message('Fullscreen was blocked by the browser. Press F11 instead.','bad'));
+ else message('Press F11 for fullscreen.','bad');
+}
+
+/* ---------- wiring ---------- */
+$('camBtn').addEventListener('click',startCam);
+$('idBtn').addEventListener('click',identify);
+$('yesBtn').addEventListener('click',sayYes);
+$('noBtn').addEventListener('click',openFix);
+$('fixSave').addEventListener('click',saveFix);
+$('fixCancel').addEventListener('click',cancelFix);
+$('discardBtn').addEventListener('click',discard);
+$('resetBtn').addEventListener('click',requestReset);
+$('retryBtn').addEventListener('click',loadModel);
+$('saveModelBtn').addEventListener('click',saveModelFiles);
+$('fixInput').addEventListener('keydown',e=>{
+ if(e.key==='Enter'){e.preventDefault();saveFix()}
+ else if(e.key==='Escape'){e.preventDefault();cancelFix()}
+});
+
+/* keyboard shortcuts: Space identify, Y yes, N no, R reset, F fullscreen */
+function isTyping(t){return !!t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable)}
+document.addEventListener('keydown',e=>{
+ if(e.ctrlKey||e.metaKey||e.altKey)return;
+ if(isTyping(e.target))return;            // typing a correction (or choosing a file): leave the keys alone
+ if(e.key===' '||e.key==='Spacebar'){e.preventDefault();if(!e.repeat)identify();return}
+ if(e.repeat)return;
+ const k=e.key.toLowerCase();
+ if(k==='y'||k==='n'||k==='r'||k==='f')e.preventDefault();   // so the letter is not also typed into the box that N opens
+ if(k==='y')sayYes();
+ else if(k==='n')openFix();
+ else if(k==='r')requestReset();
+ else if(k==='f')toggleFullscreen();
+ else if(e.key==='Escape')cancelFix();
+});
+document.addEventListener('keyup',e=>{
+ if((e.key===' '||e.key==='Spacebar')&&!isTyping(e.target))e.preventDefault();   // stops a focused button from also "clicking" when Space is released
+});
+
+/* ---------- start ---------- */
+renderGuesses();renderLog();renderTotals();updateButtons();
+loadModel();
+</script>
+</body>
+</html>

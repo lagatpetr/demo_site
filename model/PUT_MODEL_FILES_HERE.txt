@@ -1,0 +1,9 @@
+This folder must contain the MobileNet v2 model files for the offline demo:
+
+  model.json
+  + every weights file that model.json lists (for example model.weights.bin,
+    or group1-shard1of4 ... group1-shard4of4)
+
+Easiest way to get them: see "GET THE MODEL FILES" in ../READ_ME_FIRST.txt.
+Until they are here, the demo needs internet to start. The status in the top
+right corner of the page says "offline model" once these files are used.
