@@ -1,4 +1,4 @@
-WHAT IS THIS ITEM?  (v5: Tech Kidz Africa, Human + AI live demo)
+WHAT IS THIS ITEM?  (v6: Tech Kidz Africa, Human + AI live demo)
 
 THE IDEA
 You hold any everyday item up to the webcam. An AI (MobileNet v2, running inside the browser on
@@ -47,7 +47,7 @@ the AI cannot load at all, the page says so and offers "Retry loading the AI".
 SETUP FOR THE SHOWCASE
 ------------------------------------------------------------------------------------------
 1. Copy the whole folder to the presenting laptop. Install Python 3 if missing.
-2. Close any older demo server window (older versions used port 8000; this one uses port 8765).
+2. Close any older demo server window (older versions used ports 8000 and 8765; this one uses port 8766).
 3. Double-click START_DEMO.bat or run ./START_DEMO.sh. Chrome/Edge opens the demo.
    Keep the server window open during the show.
 4. Wait for "AI ready · offline model · WEBGL" (top right). CPU means no graphics acceleration:
@@ -70,6 +70,44 @@ HOW A ROUND WORKS
     so the numbers stay honest.
   - Accuracy = (times a person said Yes) / (items checked). It judges only the AI's FIRST guess.
   - Refreshing the page clears the log.
+
+------------------------------------------------------------------------------------------
+TEACHING THE AI (saved pictures)  -  new in v6
+------------------------------------------------------------------------------------------
+What it does
+  Every time a person presses Yes, or types a correction, the picture is saved as a reference for
+  that item name (a small thumbnail plus the numbers MobileNet computes for the picture). Next time,
+  the new picture is compared with the saved ones. If one looks close enough, the answer shown is that
+  saved item, labelled "From pictures a person saved" with a MATCH percentage.
+  MobileNet's own three guesses are always still shown underneath.
+
+What it is NOT
+  The AI model itself is not retrained. It only gets extra reference pictures taught by people.
+  "Match" says how alike two pictures look to the AI. It is not a probability and is not comparable
+  with the AI's own percentage. The page shows "Closest saved picture ... only 71% match. Below the
+  80% line, so it was not used" so the audience can see why a saved picture was or was not used.
+
+Where it is kept
+  Only inside this browser on this computer. Nothing is uploaded. The saved pictures survive a page
+  refresh and a restart. Reset (R) clears the log but NOT the saved pictures.
+  Press "Forget saved pictures" (click twice) to wipe them. Limits: 12 pictures per item name, 150 in total.
+  A different address (for example the hosted Vercel link, or another port) has its own empty memory.
+
+BEFORE THE SHOW (important)
+  1. Practise with your real items so the AI has seen a few varied pictures of each (different angles,
+     lighting, hands). Two to five pictures per item helps.
+  2. The 80% matching line (LEARN_LINE near the top of the script) was NOT tuned on the real MobileNet
+     weights. Test it: show a saved item (match should be high) and a DIFFERENT item (match should be
+     clearly lower). If a different item reaches the line, raise LEARN_LINE (try 0.85 or 0.90). If the same
+     item is missed, lower it a little.
+  3. Decide whether to start fresh: press "Forget saved pictures" to show it learning live, or keep your
+     rehearsal pictures so it already looks good. Say which one you did if asked.
+  4. Untick "Use saved pictures when guessing" if you want to show the plain AI.
+
+Honest notes about learning
+  - It is only as good as what people teach it. A wrong correction teaches it something wrong.
+  - It can match the wrong item if two items look alike to the AI. The person still decides.
+  - With only one or two saved pictures it recognises that exact object and view, not the whole category.
 
 ------------------------------------------------------------------------------------------
 3-MINUTE STAGE SCRIPT
@@ -105,6 +143,7 @@ BEFORE THE EVENT (10-minute checklist)
 ------------------------------------------------------------------------------------------
 HONEST LIMITATIONS
 ------------------------------------------------------------------------------------------
+- Saved-picture matching is a simple comparison and was not tested on the real model weights (see TEACHING THE AI).
 - The model only knows 1,000 ImageNet categories (many are animals, dog breeds, tools, vehicles).
   Everyday items missing from its list will be matched to the nearest thing it knows, or flagged "not sure".
   There is no category for people, brands or specific products.

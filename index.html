@@ -145,6 +145,18 @@ td.conf small{display:block;font-family:inherit;font-size:13px;color:var(--muted
 .legend i{display:inline-block;width:12px;height:12px;border-radius:2px;margin:0 6px 0 16px;vertical-align:-1px}.legend i:first-child{margin-left:0}
 .legend a{color:var(--muted)}
 
+/* learning card */
+.learnbody{padding:14px 16px}
+.learnline{font-size:17px}
+.learnnote{font-size:14px;color:var(--muted);margin-top:6px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 2px}
+.chiplabel{font-size:15px;font-weight:600;color:var(--human);background:var(--human-soft);border:1px solid var(--human-line);border-radius:4px;padding:3px 10px}
+.learnctl{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+.chk{display:flex;align-items:center;gap:8px;font-size:17px;cursor:pointer}
+.chk input{width:20px;height:20px}
+.nearest{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:15px;color:var(--muted)}
+.nearest img{width:44px;height:44px;border:1px solid var(--human-line);border-radius:3px;object-fit:cover;flex:none}
+.g-kicker.human{color:var(--human)}
 @media(max-width:1000px){.grid{grid-template-columns:1fr}.resbody{grid-template-columns:1fr}.snapbox{max-width:260px}.stats{grid-template-columns:repeat(2,1fr)}.msgbar{flex-wrap:wrap}}
 @media(prefers-reduced-motion:reduce){button:active:not(:disabled){transform:none}}
 </style>
@@ -224,6 +236,19 @@ td.conf small{display:block;font-family:inherit;font-size:13px;color:var(--muted
     </div>
    </section>
 
+   <section class="card" aria-label="Saved pictures">
+    <div class="cardhead"><h2>What people have taught it</h2><span class="chip human">Saved by people</span></div>
+    <div class="learnbody">
+     <div class="learnline" id="learnSummary"></div>
+     <div class="chips" id="learnChips"></div>
+     <div class="learnctl">
+      <label class="chk"><input type="checkbox" id="useMemory" checked /> Use saved pictures when guessing</label>
+      <button id="forgetBtn" class="ghost small">Forget saved pictures</button>
+     </div>
+     <div class="learnnote">Saved on this device only. “Match” says how alike two pictures look to the AI. It is not the same as the AI’s percentage.</div>
+    </div>
+   </section>
+
   </div>
  </main>
 
@@ -244,6 +269,11 @@ const CONFIDENCE_LINE=0.40;   // below this, the page says "The AI is not sure"
 const CROP_SQUARE=true;       // true: the AI sees the centre square of the frame. false: the whole frame squashed into a square.
 const INPUT_SIZE=224;         // MobileNet v2 takes 224 x 224 pixels
 const LOCAL_MODEL='model/model.json';
+const LEARN_LINE=0.80;        // a saved picture must match at least this well (0..1) to be used as the guess
+const DUP_LINE=0.985;         // a picture almost identical to one already saved for that item is not saved again
+const MAX_PER_ITEM=12;        // most pictures kept per item name (oldest are dropped)
+const MAX_TOTAL=150;          // most pictures kept overall
+const MEM_KEY='aiItemMemory_v1',MEM_MODEL='mobilenet-v2-1.0-224';
 const MODEL_CFG={version:2,alpha:1.0,inputRange:[0,1]};   // MobileNet v2, width 1.0. Pixels go in as 0..1, which is what this model expects.
 
 /* ---------- where the AI comes from: local files first, internet only as a backup ---------- */
@@ -268,7 +298,8 @@ let model=null,modelOrigin='',loading=false,busy=false;
 let source='none',stream=null,photoURL=null;
 let stage='none';            // none | await (waiting for a person) | fixing (person is typing a correction) | done
 let current=null;            // the capture waiting for a verdict: {preds,unsure,thumb,ms}
-let log=[],counter=0,discarded=0,resetTimer=null;
+let log=[],counter=0,discarded=0,resetTimer=null,forgetTimer=null;
+let memory=[],embeddingsOK=true,storageOK=true;   // memory = pictures a person confirmed or corrected
 const video=$('video'),photoImg=$('photoImg'),guide=$('guide'),gctx=guide.getContext('2d');
 
 /* ---------- small helpers ---------- */
@@ -466,7 +497,11 @@ async function identify(){
   const ms=Math.round(performance.now()-t0);
   if(!Array.isArray(raw)||raw.length<3||raw.some(r=>!r||typeof r.className!=='string'||!isFinite(r.probability)))throw new Error('the model returned something unexpected');
   const preds=raw.map(r=>({label:nice(r.className),full:r.className,p:r.probability}));
-  current={preds,unsure:preds[0].p<CONFIDENCE_LINE,thumb:makeThumb(frame),ms};
+  let emb=null;
+  if(embeddingsOK){try{emb=await getEmbedding(frame)}catch(e2){embeddingsOK=false;renderMemory()}}
+  const near=(emb&&memory.length)?nearest(emb):null;
+  const learned=(near&&$('useMemory').checked&&near.sim>=LEARN_LINE)?{label:near.item.label,sim:near.sim,count:near.count,thumb:near.item.thumb}:null;
+  current={preds,unsure:learned?false:preds[0].p<CONFIDENCE_LINE,thumb:makeThumb(frame),ms,emb,near,learned};
   stage='await';
   message(current.unsure?'The AI is not sure about this one. A person decides: is its best guess right?':'The AI has made a guess. A person decides: is it right?','ai');
  }catch(err){
@@ -475,6 +510,67 @@ async function identify(){
  }finally{busy=false;renderGuesses();updateButtons()}
 }
 
+/* ---------- memory: pictures a person confirmed or corrected, used as extra references ---------- */
+function f32ToB64(a){const u=new Uint8Array(a.buffer,a.byteOffset,a.byteLength);let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)}
+function b64ToF32(b){const s=atob(b),u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return new Float32Array(u.buffer)}
+function loadMemory(){
+ try{
+  const raw=localStorage.getItem(MEM_KEY);if(!raw)return;
+  const d=JSON.parse(raw);if(!d||d.model!==MEM_MODEL||!Array.isArray(d.items))return;
+  memory=d.items.map(i=>({key:String(i.key),label:String(i.label),emb:b64ToF32(i.emb),thumb:i.thumb||'',t:i.t||0})).filter(i=>i.emb.length>0&&i.label);
+ }catch(e){memory=[];if(e&&e.name==='SecurityError')storageOK=false}
+}
+function persistMemory(){
+ try{localStorage.setItem(MEM_KEY,JSON.stringify({v:1,model:MEM_MODEL,items:memory.map(i=>({key:i.key,label:i.label,emb:f32ToB64(i.emb),thumb:i.thumb,t:i.t}))}));return true}
+ catch(e){return false}
+}
+function normalise(arr){let n=0;for(let i=0;i<arr.length;i++)n+=arr[i]*arr[i];n=Math.sqrt(n);if(!isFinite(n)||n===0)return null;const o=new Float32Array(arr.length);for(let i=0;i<arr.length;i++)o[i]=arr[i]/n;return o}
+function similarity(a,b){if(a.length!==b.length)return -1;let d=0;for(let i=0;i<a.length;i++)d+=a[i]*b[i];return d}
+async function getEmbedding(canvas){
+ const t=model.infer(canvas,true);
+ try{return normalise(await t.data())}finally{t.dispose()}
+}
+function nearest(emb){
+ let best=null;
+ for(const it of memory){const sim=similarity(emb,it.emb);if(!best||sim>best.sim)best={item:it,sim}}
+ if(best)best.count=memory.filter(i=>i.key===best.item.key).length;
+ return best;
+}
+function addExample(label,emb,thumb){
+ if(!emb)return 'none';
+ const key=label.trim().toLowerCase();
+ const same=memory.filter(i=>i.key===key);
+ const first=same.length?same[0].label:label.trim();
+ if(same.some(i=>similarity(emb,i.emb)>=DUP_LINE))return 'duplicate';
+ const item={key,label:first,emb,thumb,t:Date.now()};
+ memory.push(item);
+ const mine=memory.filter(i=>i.key===key);
+ if(mine.length>MAX_PER_ITEM)memory.splice(memory.indexOf(mine[0]),1);
+ while(memory.length>MAX_TOTAL)memory.shift();
+ if(!persistMemory()){memory.splice(memory.indexOf(item),1);storageOK=false;renderMemory();return 'full'}
+ renderMemory();return 'saved';
+}
+function renderMemory(){
+ const sum=$('learnSummary'),chips=$('learnChips');chips.textContent='';
+ if(!embeddingsOK){sum.textContent='Saving pictures is not available with these model files. The AI still works as before.';return}
+ if(!storageOK&&!memory.length){sum.textContent='This browser would not let the page save pictures, so nothing can be learned here.';return}
+ if(!memory.length){sum.textContent='Nothing saved yet. When a person says Yes, or types a correction, that picture is saved here as a reference.';return}
+ const counts=new Map();memory.forEach(i=>{const c=counts.get(i.key)||{label:i.label,n:0};c.n++;counts.set(i.key,c)});
+ sum.textContent=`${memory.length} saved picture${memory.length===1?'':'s'} of ${counts.size} item${counts.size===1?'':'s'}.`+(storageOK?'':' The browser is full, so no more can be saved.');
+ [...counts.values()].sort((a,b)=>b.n-a.n).slice(0,12).forEach(c=>chips.appendChild(el('span','chiplabel',`${c.label} × ${c.n}`)));
+}
+function disarmForget(){clearTimeout(forgetTimer);forgetTimer=null;$('forgetBtn').textContent='Forget saved pictures'}
+function requestForget(){
+ if(!memory.length){message('Nothing is saved yet.','');return}
+ if(!forgetTimer){$('forgetBtn').textContent='Click again to forget';forgetTimer=setTimeout(disarmForget,4000);return}
+ disarmForget();memory=[];persistMemory();renderMemory();message('Saved pictures forgotten. The AI is back to its own knowledge.','good');
+}
+const matchPct=sim=>Math.max(0,Math.min(100,Math.round(sim*100)))+'%';
+// what the AI puts forward as its answer: a close saved picture if there is one, otherwise MobileNet's top guess
+function topLabel(c){return c.learned?c.learned.label:c.preds[0].label}
+function topScoreValue(c){return c.learned?c.learned.sim:c.preds[0].p}
+function topScoreText(c){return c.learned?matchPct(c.learned.sim)+' match':pct(c.preds[0].p)}
+
 /* ---------- showing the guesses ---------- */
 function guessRow(r){
  const row=el('div','g-row'),line=el('div','g-line');
@@ -482,49 +578,69 @@ function guessRow(r){
  const m=el('div','meter'),f=document.createElement('div');f.style.width=(Math.max(0,Math.min(1,r.p))*100)+'%';m.appendChild(f);
  row.appendChild(line);row.appendChild(m);return row;
 }
+function nearestLine(c){
+ if(!c.near||!$('useMemory').checked)return null;
+ const n=c.near,box=el('div','nearest');
+ if(n.item.thumb){const im=document.createElement('img');im.src=n.item.thumb;im.alt='Closest saved picture';box.appendChild(im)}
+ box.appendChild(el('span','',c.learned?`Closest saved picture: “${n.item.label}”, ${matchPct(n.sim)} match.`:`Closest saved picture: “${n.item.label}”, only ${matchPct(n.sim)} match. Below the ${Math.round(LEARN_LINE*100)}% line, so it was not used.`));
+ return box;
+}
 function renderGuesses(){
  const box=$('guesses');box.textContent='';
  if(busy&&!current){box.appendChild(el('div','placeholder','The AI is looking at the picture…'));return}
  if(!current){box.appendChild(el('div','placeholder','No guess yet. Hold up an item and press Identify (Space).'));return}
  const a=current.preds[0];
- if(current.unsure){
+ if(current.learned){
+  const L=current.learned;
+  box.appendChild(el('div','g-kicker human','From pictures a person saved'));
+  box.appendChild(el('div','headline',`${L.label}: ${matchPct(L.sim)} match`));
+  box.appendChild(el('div','g-sub',`Looks like ${L.count} picture${L.count===1?'':'s'} a person saved as “${L.label}”.`));
+  const nl=nearestLine(current);if(nl)box.appendChild(nl);
+  box.appendChild(el('div','g-title','The AI’s own guesses'));
+  current.preds.forEach(r=>box.appendChild(guessRow(r)));
+ }else if(current.unsure){
   box.appendChild(el('div','g-kicker','AI result'));
   box.appendChild(el('div','headline unsure','The AI is not sure'));
   box.appendChild(el('div','g-sub',`Its best guess is “${a.label}”, at only ${pct(a.p)}. That is below ${Math.round(CONFIDENCE_LINE*100)}%, so it is not a confident answer.`));
   box.appendChild(el('div','g-title','All three guesses'));
   current.preds.forEach(r=>box.appendChild(guessRow(r)));
+  const nl=nearestLine(current);if(nl)box.appendChild(nl);
  }else{
   box.appendChild(el('div','g-kicker','The AI thinks this is'));
   box.appendChild(el('div','headline',`${a.label}: ${pct(a.p)}`));
   const al=aliases(a.full);if(al.length)box.appendChild(el('div','g-sub','Also called: '+al.join(', ')));
   box.appendChild(el('div','g-title','Next guesses'));
   current.preds.slice(1).forEach(r=>box.appendChild(guessRow(r)));
+  const nl=nearestLine(current);if(nl)box.appendChild(nl);
  }
  box.appendChild(el('div','took',`The AI took ${current.ms} ms.`));
 }
 
 /* ---------- the person's verdict ---------- */
 function commit(verdict,actual){
- const top=current.preds[0];
- log.unshift({n:++counter,thumb:current.thumb,actual,guess:top.label,p:top.p,unsure:current.unsure,verdict});
- const note=$('verdictNote');
- if(verdict==='ai'){note.className='verdictnote ok';note.textContent='Logged: AI correct.'}
- else{note.className='verdictnote human';note.textContent=`Logged: human corrected. The AI said “${top.label}”, a person said “${actual}”.`}
+ const guess=topLabel(current),score=topScoreValue(current),fromSaved=!!current.learned;
+ log.unshift({n:++counter,thumb:current.thumb,actual,guess,p:score,unsure:current.unsure,verdict,fromSaved});
+ // teach: the person confirmed this label (Yes) or supplied it (correction)
+ const saved=addExample(actual,current.emb,current.thumb);
+ const savedText=saved==='saved'?' Saved this picture for next time.':saved==='duplicate'?' A very similar picture is already saved.':saved==='full'?' The browser is full, so this picture could not be saved.':'';
+ const shown=topScoreText(current),note=$('verdictNote');
+ if(verdict==='ai'){note.className='verdictnote ok';note.textContent='Logged: AI correct.'+savedText}
+ else{note.className='verdictnote human';note.textContent=`Logged: human corrected. The AI said “${guess}”, a person said “${actual}”.`+savedText}
  note.hidden=false;$('fixPanel').hidden=true;
- message(verdict==='ai'?`Logged: the AI was right (${top.label}, ${pct(top.p)}).`:`Logged: the AI guessed “${top.label}” (${pct(top.p)}) but a person corrected it to “${actual}”.`,verdict==='ai'?'good':'human');
+ message(verdict==='ai'?`Logged: the AI was right (${guess}, ${shown}).`:`Logged: the AI guessed “${guess}” (${shown}) but a person corrected it to “${actual}”.`,verdict==='ai'?'good':'human');
  current=Object.assign({},current,{judged:true});stage='done';
  renderLog();renderTotals();updateButtons();
 }
 function sayYes(){
  if(stage!=='await'&&stage!=='fixing'){message('Nothing to judge yet. Press Identify first.','bad');return}
- commit('ai',current.preds[0].label);
+ commit('ai',topLabel(current));
 }
 function openFix(){
  if(stage!=='await'&&stage!=='fixing'){message('Nothing to judge yet. Press Identify first.','bad');return}
  stage='fixing';
  const picks=$('picks');picks.textContent='';
  picks.appendChild(el('span','lbl','AI’s other guesses (click to use):'));
- current.preds.slice(1).forEach(r=>{const b=el('button','humanout small',r.label);b.type='button';b.addEventListener('click',()=>{$('fixInput').value=r.label;$('fixInput').focus()});picks.appendChild(b)});
+ (current.learned?current.preds:current.preds.slice(1)).filter(r=>r.label.toLowerCase()!==topLabel(current).toLowerCase()).forEach(r=>{const b=el('button','humanout small',r.label);b.type='button';b.addEventListener('click',()=>{$('fixInput').value=r.label;$('fixInput').focus()});picks.appendChild(b)});
  $('fixInput').value='';$('fixPanel').hidden=false;$('fixInput').focus();
  message('The AI was wrong. Type what the item really is, or click one of the AI’s other guesses, then press Enter.','human');
  updateButtons();
@@ -537,8 +653,8 @@ function saveFix(){
  if(stage!=='fixing')return;
  const val=$('fixInput').value.trim().replace(/\s+/g,' ');
  if(!val){message('Type what the item really is first, or press Cancel.','bad');$('fixInput').focus();return}
- const top=current.preds[0],low=val.toLowerCase();
- if(low===top.label.toLowerCase()||top.full.toLowerCase().split(',').map(s=>s.trim()).includes(low)){
+ const low=val.toLowerCase(),names=current.learned?[current.learned.label.toLowerCase()]:current.preds[0].full.toLowerCase().split(',').map(s=>s.trim());
+ if(names.includes(low)){
   message(`“${val}” is the same as the AI’s guess. If the AI is right, press Yes instead.`,'bad');$('fixInput').focus();return;
  }
  commit('human',val);
@@ -555,7 +671,7 @@ function renderLog(){
  const box=$('logBox');box.textContent='';
  if(!log.length){box.appendChild(el('div','emptylog','Nothing logged yet. Press Identify, then answer Yes or No.'));return}
  const t=document.createElement('table'),hr=document.createElement('tr');
- ['No.','Picture','Item (what it really is)','AI guess','AI confidence','Verdict'].forEach(h=>hr.appendChild(el('th','',h)));
+ ['No.','Picture','Item (what it really is)','AI guess','AI confidence / match','Verdict'].forEach(h=>hr.appendChild(el('th','',h)));
  const th=document.createElement('thead');th.appendChild(hr);t.appendChild(th);
  const tb=document.createElement('tbody');
  log.forEach(r=>{
@@ -564,7 +680,7 @@ function renderLog(){
   const pic=el('td','pic');if(r.thumb){const im=document.createElement('img');im.src=r.thumb;im.alt='Picture the AI saw';pic.appendChild(im)}tr.appendChild(pic);
   tr.appendChild(el('td','item'+(r.verdict==='human'?' fixedname':''),r.actual));
   tr.appendChild(el('td','guess'+(r.verdict==='human'?' wrong':''),r.guess));
-  const conf=el('td','conf',pct(r.p));if(r.unsure)conf.appendChild(el('small','','not sure'));tr.appendChild(conf);
+  const conf=el('td','conf',r.fromSaved?matchPct(r.p)+' match':pct(r.p));if(r.fromSaved)conf.appendChild(el('small','','from saved pictures'));else if(r.unsure)conf.appendChild(el('small','','not sure'));tr.appendChild(conf);
   const vt=el('td');vt.appendChild(el('span','tag '+(r.verdict==='ai'?'ok':'human'),r.verdict==='ai'?'AI correct':'Human corrected'));tr.appendChild(vt);
   tb.appendChild(tr);
  });
@@ -622,6 +738,8 @@ $('fixCancel').addEventListener('click',cancelFix);
 $('discardBtn').addEventListener('click',discard);
 $('resetBtn').addEventListener('click',requestReset);
 $('retryBtn').addEventListener('click',loadModel);
+$('forgetBtn').addEventListener('click',requestForget);
+$('useMemory').addEventListener('change',e=>e.target.blur());
 $('saveModelBtn').addEventListener('click',saveModelFiles);
 $('fixInput').addEventListener('keydown',e=>{
  if(e.key==='Enter'){e.preventDefault();saveFix()}
@@ -648,6 +766,7 @@ document.addEventListener('keyup',e=>{
 });
 
 /* ---------- start ---------- */
+loadMemory();renderMemory();
 renderGuesses();renderLog();renderTotals();updateButtons();
 loadModel();
 </script>
